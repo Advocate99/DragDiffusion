@@ -32,7 +32,7 @@ dift.pipe.load_lora_weights('./lora-200')
 
 bs = 1
 
-# Trails required. 
+# Trials required. 
 # Also differs from the paper.
 prompt = "xxy5syt00"
 ddim_step = 50
