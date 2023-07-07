@@ -66,7 +66,7 @@ image0 = np.array(image0).astype(np.float32) / 255 * 2 - 1
 image0 = torch.from_numpy(image0).permute(2, 0, 1).unsqueeze(0)
 
 pipe.scheduler.set_timesteps(ddim_step)
-resume_times = pipe.scheduler.timesteps[list(pipe.scheduler.timesteps).index(inter_id)+1:]
+resume_times = pipe.scheduler.timesteps[list(pipe.scheduler.timesteps).index(inter_id):]
 
 with torch.no_grad():
     intermediate = pipe.vae.encode(image0.cuda()).latent_dist.sample() * pipe.vae.config.scaling_factor
