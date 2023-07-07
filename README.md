@@ -12,18 +12,13 @@ The performances are not comparable with the paper's, and considering the perfor
 <img src="assets/demo_case.jpg" width="500" alt="Demo case of Our Implementation"/>
 
 
-##  To-do list
-- [ ] Allin1 pipeline
-- [ ] GUI version
-- [ ] Our Approach (if any, not promising enough yet)
-
 ## Environment
 ```
 conda env create -f environment.yml
 conda activate diff
 ```
 
-# How-to
+## How-to
 1. Put the image file in the `./finetune_data/` and finetune the SD-v1.5 with LoRA. 
 
     ```

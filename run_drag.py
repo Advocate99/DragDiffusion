@@ -65,13 +65,29 @@ image0 = Image.open("finetune_data/bear.jpg")
 image0 = np.array(image0).astype(np.float32) / 255 * 2 - 1
 image0 = torch.from_numpy(image0).permute(2, 0, 1).unsqueeze(0)
 
+pipe.scheduler.set_timesteps(ddim_step)
+resume_times = pipe.scheduler.timesteps[list(pipe.scheduler.timesteps).index(inter_id)+1:]
+
 with torch.no_grad():
     intermediate = pipe.vae.encode(image0.cuda()).latent_dist.sample() * pipe.vae.config.scaling_factor
     noise = torch.randn_like(intermediate).cuda()
     intermediate =  pipe.scheduler.add_noise(intermediate, noise, torch.tensor(inter_id, dtype=torch.long).cuda())
 
-pipe.scheduler.set_timesteps(ddim_step)
-resume_times = pipe.scheduler.timesteps[list(pipe.scheduler.timesteps).index(inter_id)+1:]
+    latent_model_input = torch.cat([intermediate] * 2)
+    latent_model_input = pipe.scheduler.scale_model_input(latent_model_input, inter_id)
+
+    # predict the noise residual
+    noise_pred = pipe.unet(
+        latent_model_input,
+        inter_id,
+        encoder_hidden_states=prompt_embeds
+    ).sample
+
+    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+    latents_0_t_minus_1 = pipe.scheduler.step(noise_pred, inter_id, intermediate).prev_sample
+    latents_0_t_minus_1 = nn.Upsample(size=(image0.shape[2], image0.shape[3]), mode='bilinear')(latents_0_t_minus_1)
 
 with torch.no_grad():
 
@@ -108,7 +124,20 @@ for iter in range(max_iters):
 
     loss = motion_supervison(handle_points, target_points, F2, r1)
     if mask is not None:
-        mask_loss = ((F2 - F00) * (1-mask)).abs().mean()
+        latent_model_input = latents
+        latent_model_input = pipe.scheduler.scale_model_input(latent_model_input, inter_id)
+
+        # predict the noise residual
+        noise_pred = pipe.unet(
+            latent_model_input,
+            inter_id,
+            encoder_hidden_states=prompt_embeds.chunk(2)[0]
+        ).sample
+
+        latents_t_minus_1 = pipe.scheduler.step(noise_pred, inter_id, latents).prev_sample
+        latents_t_minus_1 = nn.Upsample(size=(image0.shape[2], image0.shape[3]), mode='bilinear')(latents_t_minus_1)
+
+        mask_loss = ((latents_t_minus_1 - latents_0_t_minus_1) * (1-mask)).abs().mean()
         loss += mask_loss * lam
 
     loss += FF.l1_loss(latents, intermediate) * reg
